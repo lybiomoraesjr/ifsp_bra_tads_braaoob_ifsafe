@@ -1,0 +1,40 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: ifsafe-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ifsafe
+      MONGO_INITDB_ROOT_PASSWORD: ifsafe
+    volumes:
+      - ifsafe_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API (perfil "full"): só sobe com `docker compose --profile full up`.
+  # Para desenvolvimento com hot reload, rode a API no host com `yarn dev`
+  # (o serviço "mongo" acima já basta).
+  api:
+    build: .
+    container_name: ifsafe-api
+    restart: unless-stopped
+    profiles: ["full"]
+    ports:
+      - "3333:3333"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 3333
+      # Dentro da rede do compose o host do banco é "mongo", não "localhost".
+      MONGODB_URI: mongodb://ifsafe:ifsafe@mongo:27017/ifsafe?authSource=admin
+      JWT_SECRET: troque-este-segredo
+      JWT_EXPIRES_IN: 7d
+
+volumes:
+  ifsafe_mongo_data:
